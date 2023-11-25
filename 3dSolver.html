@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Points Graph</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        #graph {
+            width: 600px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Enter a Number (n) to find solutions for Legendre's three-square theorem</h2>
+    <input type="number" id="numberInput" placeholder="Enter a number">
+    <button onclick="findSolutions()">Generate</button>
+    <button id="animateButton" onclick="startAnimation()">Start Animation</button>
+    <div>
+        <input type="checkbox" id="toggleEdges" onclick="updateGraph()"> Show Edges
+        <input type="checkbox" id="toggleCircles" onclick="updateGraph()"> Draw Circles for Same Y-Axis Points
+        <input type="checkbox" id="allowNegatives"> Allow Negative Numbers
+    </div>
+    <div>
+        <label>Axis Range: </label>
+        <input type="number" id="axisRange" placeholder="Axis Range">
+    </div>
+    <div id="graph"></div>
+
+    <script>
+        let currentSolutions = [];
+        let animationInterval;
+        let lastCameraView = null;
+
+        function isThreeSquare(n) {
+            while (n % 4 === 0) {
+                n = Math.floor(n / 4);
+            }
+            return n % 8 !== 7;
+        }
+
+        function findSolutions() {
+            const n = parseInt(document.getElementById('numberInput').value);
+            if (isThreeSquare(n)) {
+                updateSolutionsAndGraph(n);
+            } else {
+                alert('No solutions exist for this number as per Legendre\'s three-square theorem');
+            }
+        }
+
+        function updateSolutionsAndGraph(n) {
+            const solutions = [];
+            const allowNegatives = document.getElementById('allowNegatives').checked;
+            const range = allowNegatives ? n : Math.sqrt(n);
+            for (let a = allowNegatives ? -range : 0; a <= range; a++) {
+                for (let b = allowNegatives ? -range : 0; b <= range; b++) {
+                    for (let c = allowNegatives ? -range : 0; c <= range; c++) {
+                        if (a * a + b * b + c * c === n) {
+                            solutions.push([a, b, c]);
+                        }
+                    }
+                }
+            }
+            if (solutions.length > 0) {
+                currentSolutions = solutions;
+                updateGraph();
+                document.getElementById('numberInput').value = n;
+            } else if (animationInterval) {
+                setTimeout(() => updateSolutionsAndGraph(n + 1), 0);
+            }
+        }
+
+
+        function updateGraph() {
+            const showEdges = document.getElementById('toggleEdges').checked;
+            plotGraph(currentSolutions, showEdges);
+        }
+
+        function plotGraph(solutions, showEdges) {
+    const traces = [{
+        x: solutions.map(s => s[0]),
+        y: solutions.map(s => s[1]),
+        z: solutions.map(s => s[2]),
+        mode: 'markers',
+        type: 'scatter3d',
+        marker: { size: 5 }
+    }];
+
+    if (showEdges) {
+        for (let i = 0; i < solutions.length; i++) {
+            for (let j = i + 1; j < solutions.length; j++) {
+                traces.push({
+                    x: [solutions[i][0], solutions[j][0]],
+                    y: [solutions[i][1], solutions[j][1]],
+                    z: [solutions[i][2], solutions[j][2]],
+                    mode: 'lines',
+                    type: 'scatter3d',
+                    line: { color: 'rgba(121,111,125,2)' } // Optional: change line color and opacity
+                });
+            }
+        }
+    }
+
+
+            if (document.getElementById('toggleCircles').checked) {
+                let yGroups = {};
+                solutions.forEach(point => {
+                    let yValue = point[1];
+                    if (!yGroups[yValue]) {
+                        yGroups[yValue] = [];
+                    }
+                    yGroups[yValue].push(point);
+                });
+
+                Object.values(yGroups).forEach(group => {
+                    if (group.length > 1) {
+                        let circlePoints = calculateCirclePoints(group);
+                        traces.push({
+                            x: circlePoints.x,
+                            y: circlePoints.y,
+                            z: circlePoints.z,
+                            mode: 'lines',
+                            type: 'scatter3d'
+                        });
+                    }
+                });
+            }
+
+            const axisRange = document.getElementById('axisRange').value || Math.max(...solutions.map(s => Math.max(...s)));
+            const layout = {
+                scene: {
+                    camera: lastCameraView || {
+                        up: {x: 0, y: 0, z: 1},
+                        center: {x: 0, y: 0, z: 0},
+                        eye: {x: 1.25, y: 1.25, z: 1.25}
+                    },
+                    xaxis: { range: [-axisRange, axisRange] },
+                    yaxis: { range: [-axisRange, axisRange] },
+                    zaxis: { range: [-axisRange, axisRange] }
+                }
+            };
+
+            Plotly.newPlot('graph', traces, layout, {responsive: true}).then(function(gd) {
+                gd.on('plotly_relayout', function(eventData){
+                    lastCameraView = eventData['scene.camera'];
+                });
+                savePlotAsPNG(gd); // Call function to save plot as PNG
+            });
+        }
+
+        function calculateCirclePoints(points) {
+            let xValues = points.map(p => p[0]);
+            let zValues = points.map(p => p[2]);
+            let yValue = points[0][1]; // All y-values are the same in each group
+
+            // Calculate centroid
+            let centerX = xValues.reduce((a, b) => a + b, 0) / xValues.length;
+            let centerZ = zValues.reduce((a, b) => a + b, 0) / zValues.length;
+
+            // Calculate radius as the distance to the farthest point
+            let radius = Math.max(...points.map(p => Math.sqrt(Math.pow(p[0] - centerX, 2) + Math.pow(p[2] - centerZ, 2))));
+
+            let circlePoints = { x: [], y: [], z: [] };
+            for (let i = 0; i <= 360; i += 10) { // Adjust step for smoother circles
+                let rad = i * Math.PI / 180;
+                circlePoints.x.push(centerX + radius * Math.cos(rad));
+                circlePoints.y.push(yValue);
+                circlePoints.z.push(centerZ + radius * Math.sin(rad));
+            }
+
+            return circlePoints;
+        }
+
+        function startAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                document.getElementById('animateButton').innerText = 'Start Animation';
+            } else {
+                animationInterval = setInterval(() => {
+                    const n = parseInt(document.getElementById('numberInput').value) + 1;
+                    updateSolutionsAndGraph(n);
+                }, 200);
+                document.getElementById('animateButton').innerText = 'Stop Animation';
+            }
+        }
+    </script>
+</body>
+</html>
