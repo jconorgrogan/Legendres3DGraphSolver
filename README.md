@@ -6,3 +6,6 @@ Haven't seen this done before. Creates some very interesting symmetries! Check o
 
 <img width="784" alt="image" src="https://github.com/jconorgrogan/Legendres3DGraphSolver/assets/130090573/2d9841f6-b77b-4990-bd90-92a95f70516a">
 
+<img width="784" alt="image" src="https://github.com/jconorgrogan/Legendres3DGraphSolver/assets/130090573/3a2e3ec2-59b4-48d1-9701-454fb26b0502">
+
+
