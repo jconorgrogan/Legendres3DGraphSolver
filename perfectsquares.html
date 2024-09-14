@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Points Graph</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        #graph {
+            width: 600px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Animating Perfect Squares and their Solutions for Legendre's Three-Square Theorem</h2>
+    <button id="animateButton" onclick="startPerfectSquareAnimation()">Start Perfect Square Animation</button>
+    <div>
+        <input type="checkbox" id="toggleEdges" onclick="updateGraph()"> Show Edges
+        <input type="checkbox" id="toggleCircles" onclick="updateGraph()"> Draw Circles for Same Y-Axis Points
+        <input type="checkbox" id="allowNegatives"> Allow Negative Numbers
+    </div>
+    <div>
+        <label>Axis Range: </label>
+        <input type="number" id="axisRange" placeholder="Axis Range">
+    </div>
+    <div id="graph"></div>
+
+    <script>
+        let currentSolutions = [];
+        let animationInterval;
+        let lastCameraView = null;
+
+        // List of perfect squares to animate through (up to 20^2)
+        const perfectSquares = Array.from({ length: 20 }, (_, i) => (i + 1) ** 2);
+        let currentSquareIndex = 0;
+
+        // Function to check if a number satisfies Legendre's three-square theorem
+        function isThreeSquare(n) {
+            while (n % 4 === 0) {
+                n = Math.floor(n / 4);
+            }
+            return n % 8 !== 7;
+        }
+
+        // Function to find solutions and update the graph for a given number n
+        function findSolutions(n) {
+            if (isThreeSquare(n)) {
+                updateSolutionsAndGraph(n);
+            } else {
+                alert('No solutions exist for this number as per Legendre\'s three-square theorem');
+            }
+        }
+
+        function updateSolutionsAndGraph(n) {
+            const solutions = [];
+            const allowNegatives = document.getElementById('allowNegatives').checked;
+            const range = allowNegatives ? n : Math.sqrt(n);
+            for (let a = allowNegatives ? -range : 0; a <= range; a++) {
+                for (let b = allowNegatives ? -range : 0; b <= range; b++) {
+                    for (let c = allowNegatives ? -range : 0; c <= range; c++) {
+                        if (a * a + b * b + c * c === n) {
+                            solutions.push([a, b, c]);
+                        }
+                    }
+                }
+            }
+            if (solutions.length > 0) {
+                currentSolutions = solutions;
+                updateGraph();
+            }
+        }
+
+        function updateGraph() {
+            const showEdges = document.getElementById('toggleEdges').checked;
+            plotGraph(currentSolutions, showEdges);
+        }
+
+        function plotGraph(solutions, showEdges) {
+            const traces = [{
+                x: solutions.map(s => s[0]),
+                y: solutions.map(s => s[1]),
+                z: solutions.map(s => s[2]),
+                mode: 'markers',
+                type: 'scatter3d',
+                marker: { size: 5 }
+            }];
+
+            if (showEdges) {
+                for (let i = 0; i < solutions.length; i++) {
+                    for (let j = i + 1; j < solutions.length; j++) {
+                        traces.push({
+                            x: [solutions[i][0], solutions[j][0]],
+                            y: [solutions[i][1], solutions[j][1]],
+                            z: [solutions[i][2], solutions[j][2]],
+                            mode: 'lines',
+                            type: 'scatter3d',
+                            line: { color: 'rgba(121,111,125,2)' }
+                        });
+                    }
+                }
+            }
+
+            const axisRange = document.getElementById('axisRange').value || Math.max(...solutions.map(s => Math.max(...s)));
+            const layout = {
+                scene: {
+                    camera: lastCameraView || {
+                        up: {x: 0, y: 0, z: 1},
+                        center: {x: 0, y: 0, z: 0},
+                        eye: {x: 1.25, y: 1.25, z: 1.25}
+                    },
+                    xaxis: { range: [-axisRange, axisRange] },
+                    yaxis: { range: [-axisRange, axisRange] },
+                    zaxis: { range: [-axisRange, axisRange] }
+                }
+            };
+
+            Plotly.newPlot('graph', traces, layout, {responsive: true}).then(function(gd) {
+                gd.on('plotly_relayout', function(eventData){
+                    lastCameraView = eventData['scene.camera'];
+                });
+            });
+        }
+
+        // Function to start animating through the list of perfect squares
+        function startPerfectSquareAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                document.getElementById('animateButton').innerText = 'Start Perfect Square Animation';
+            } else {
+                currentSquareIndex = 0; // Start at the first perfect square
+                animationInterval = setInterval(() => {
+                    if (currentSquareIndex < perfectSquares.length) {
+                        const n = perfectSquares[currentSquareIndex];
+                        findSolutions(n);
+                        currentSquareIndex++;
+                    } else {
+                        clearInterval(animationInterval); // Stop when all squares are done
+                        animationInterval = null;
+                        document.getElementById('animateButton').innerText = 'Start Perfect Square Animation';
+                    }
+                }, 1000); // 1 second per square for animation speed
+                document.getElementById('animateButton').innerText = 'Stop Perfect Square Animation';
+            }
+        }
+    </script>
+</body>
+</html>
